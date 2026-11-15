@@ -16,7 +16,7 @@ function fixture(t) {
  const candidate={schemaVersion:1,repository,name:'@ehven/lanes',version:'1.0.0',tag:'v1.0.0',tarball:'ehven-lanes-1.0.0.tgz',integrity:'sha512-'+hash(bytes,'sha512','base64')};
  const values={'ehven-lanes-1.0.0.tgz':bytes,'lanes.css':Buffer.from('a{}'),'lanes.min.css':Buffer.from('a{}'),'SHA256SUMS':Buffer.from('synthetic checksums')};
  candidate.assets=Object.entries(values).map(([name,value])=>{writeFileSync(join(root,'release',name),value);return{name,sha256:hash(value)};});
- writeFileSync(join(root,'release/candidate.json'),JSON.stringify(candidate));writeFileSync(join(root,'package.json'),JSON.stringify({name:candidate.name,version:candidate.version}));
+ writeFileSync(join(root,'release/candidate.json'),JSON.stringify(candidate));writeFileSync(join(root,'package.json'),JSON.stringify({name:candidate.name,version:candidate.version,repository:{url:'git+https://github.com/'+repository+'.git'}}));
  const state={head,ci:'success',tag:null,release:null,assets:[],calls:[]};
  const save=()=>writeFileSync(join(root,'state.json'),JSON.stringify(state));save();
  const executable=(name,code)=>writeFileSync(join(root,'bin',name),'#!'+process.execPath+'\n'+code,{mode:0o700});

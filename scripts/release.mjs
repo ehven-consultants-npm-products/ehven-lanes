@@ -5,17 +5,20 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-const repository='ehven-consultants-npm-products/ehven-lanes';
+function productRepository() {
+ const match=/^git\+https:\/\/github\.com\/(ehven-consultants-npm-products\/[a-z0-9._-]+)\.git$/.exec(metadata().repository?.url??'');
+ if(!match)throw Error('Expected public product repository metadata');return match[1];
+}
 const sha=(bytes,algorithm='sha256',encoding='hex')=>createHash(algorithm).update(bytes).digest(encoding);
 const run=(command,args,options={})=>execFileSync(command,args,{timeout:120000,maxBuffer:4*1024*1024,...options});
 const json=(command,args)=>JSON.parse(String(run(command,args)));
 const github=path=>json('gh',['api',path]);
 const bounded=file=>{const stat=lstatSync(file);if(!stat.isFile()||stat.size>32*1024*1024)throw Error('Expected bounded regular release file');return readFileSync(file);};
-const metadata=()=>JSON.parse(readFileSync('package.json','utf8'));
+const metadata=()=>{const pkg=JSON.parse(readFileSync('package.json','utf8'));if(!/^@ehven\/[a-z0-9._-]+$/.test(pkg.name??'')||!/^\d+\.\d+\.\d+$/.test(pkg.version??''))throw Error('Invalid package release identity');return pkg;};
 
 export function prepare() {
- const pkg=metadata();
- if(pkg.name!=='@ehven/lanes'||!/^\d+\.\d+\.\d+$/.test(pkg.version)||pkg.repository.url!==`git+https://github.com/${repository}.git`)throw Error('Package release identity mismatch');
+ const pkg=metadata(),repository=productRepository();
+ if(!/^@ehven\/[a-z0-9._-]+$/.test(pkg.name??'')||!/^\d+\.\d+\.\d+$/.test(pkg.version)||pkg.repository.url!==`git+https://github.com/${repository}.git`)throw Error('Package release identity mismatch');
  mkdirSync('release',{recursive:true});
  const response=json('npm',['pack','--ignore-scripts','--offline','--json','--pack-destination','release']);
  const entries=Array.isArray(response)?response:Object.values(response);
@@ -41,8 +44,8 @@ export function prepare() {
 
 function candidate() {
  const value=JSON.parse(bounded('release/candidate.json'));
- const pkg=metadata();
- if(value.repository!==repository||value.name!==pkg.name||value.version!==pkg.version||value.tag!=='v'+pkg.version||!/^ehven-lanes-\d+\.\d+\.\d+\.tgz$/.test(value.tarball)||!Array.isArray(value.assets)||value.assets.length!==4||new Set(value.assets.map(x=>x.name)).size!==4)throw Error('Candidate metadata mismatch');
+ const pkg=metadata(),repository=productRepository();
+ if(value.repository!==repository||value.name!==pkg.name||value.version!==pkg.version||value.tag!=='v'+pkg.version||value.tarball!==pkg.name.slice(1).replace('/','-')+'-'+pkg.version+'.tgz'||!Array.isArray(value.assets)||value.assets.length!==4||new Set(value.assets.map(x=>x.name)).size!==4)throw Error('Candidate metadata mismatch');
  const names=[value.tarball,'lanes.css','lanes.min.css','SHA256SUMS'];
  for(const asset of value.assets)if(!names.includes(asset.name)||sha(bounded(join('release',asset.name)))!==asset.sha256)throw Error('Candidate asset changed');
  if('sha512-'+sha(bounded(join('release',value.tarball)),'sha512','base64')!==value.integrity)throw Error('Candidate tarball changed');
@@ -50,6 +53,7 @@ function candidate() {
 }
 
 function currentMain() {
+ const repository=productRepository();
  const head=String(run('git',['rev-parse','HEAD'])).trim();
  if(process.env.GITHUB_REPOSITORY!==repository||process.env.GITHUB_SHA!==head||github(`repos/${repository}/git/ref/heads/main`).object.sha!==head)throw Error('Release requires the exact current product main');
  const runs=github(`repos/${repository}/actions/workflows/ci.yml/runs?head_sha=${head}&branch=main&per_page=10`).workflow_runs;
@@ -59,7 +63,7 @@ function currentMain() {
 }
 
 export function draft() {
- const value=candidate(),head=currentMain();
+ const value=candidate(),head=currentMain(),repository=productRepository();
  const title='Lanes '+value.version,notes='CSS-only responsive lanes. See the versioned README and changelog for usage, compatibility and changes.';
  let ref;
  try {ref=github(`repos/${repository}/git/ref/tags/${value.tag}`).object;}

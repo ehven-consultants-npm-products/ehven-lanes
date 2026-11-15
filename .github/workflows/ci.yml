@@ -52,3 +52,16 @@ jobs:
       - run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
       - run: pnpm run build
       - run: pnpm run check:browser --browser=${{ matrix.browser }}
+
+  required:
+    name: Required checks
+    if: always()
+    needs: [verify, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require all package checks
+        env:
+          VERIFY: ${{ needs.verify.result }}
+          BROWSER: ${{ needs.browser.result }}
+        run: test "$VERIFY" = success && test "$BROWSER" = success

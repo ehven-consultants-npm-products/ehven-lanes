@@ -29,7 +29,7 @@ jobs:
           package-manager-cache: false
       - name: Select npm
         run: |
-          curl --fail --silent --show-error --max-time 30 https://registry.npmjs.org/npm/-/npm-12.2.2.tgz -o "$RUNNER_TEMP/npm.tgz"
+          curl --fail --silent --show-error --max-time 30 --max-filesize 8388608 https://registry.npmjs.org/npm/-/npm-12.2.2.tgz -o "$RUNNER_TEMP/npm.tgz"
           node --input-type=module -e 'import{readFileSync}from"node:fs";import{createHash}from"node:crypto";if(createHash("sha512").update(readFileSync(process.env.RUNNER_TEMP+"/npm.tgz")).digest("base64")!=="KglgbZyacf7jH+FHuNRqVuCzQi8VhI2a7J87Ix43FsPTuZoGWmIXXGdZtBUOA79vwL+IJREqURVzupA7PsQTcA==")process.exit(1)'
           mkdir "$RUNNER_TEMP/release-npm"
           tar -xzf "$RUNNER_TEMP/npm.tgz" --no-same-owner --no-same-permissions -C "$RUNNER_TEMP/release-npm"
