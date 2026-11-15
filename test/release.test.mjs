@@ -9,14 +9,14 @@ import { fileURLToPath } from 'node:url';
 
 const script=fileURLToPath(new URL('../scripts/release.mjs',import.meta.url));
 const repository='ehven-consultants-npm-products/ehven-lanes';
-function fixture(t) {
+function fixture(t,repository='ehven-consultants-npm-products/ehven-lanes') {
  const root=mkdtempSync(join(tmpdir(),'lanes-release-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
  for(const dir of ['bin','release','remote'])mkdirSync(join(root,dir));
  const bytes=Buffer.from('synthetic package'),head='a'.repeat(40),hash=(b,alg='sha256',encoding='hex')=>createHash(alg).update(b).digest(encoding);
  const candidate={schemaVersion:1,repository,name:'@ehven/lanes',version:'1.0.0',tag:'v1.0.0',tarball:'ehven-lanes-1.0.0.tgz',integrity:'sha512-'+hash(bytes,'sha512','base64')};
  const values={'ehven-lanes-1.0.0.tgz':bytes,'lanes.css':Buffer.from('a{}'),'lanes.min.css':Buffer.from('a{}'),'SHA256SUMS':Buffer.from('synthetic checksums')};
  candidate.assets=Object.entries(values).map(([name,value])=>{writeFileSync(join(root,'release',name),value);return{name,sha256:hash(value)};});
- writeFileSync(join(root,'release/candidate.json'),JSON.stringify(candidate));writeFileSync(join(root,'package.json'),JSON.stringify({name:candidate.name,version:candidate.version,repository:{url:'git+https://github.com/'+repository+'.git'}}));
+ writeFileSync(join(root,'release/candidate.json'),JSON.stringify(candidate));writeFileSync(join(root,'package.json'),JSON.stringify({name:candidate.name,version:candidate.version,style:'./dist/lanes.css',unpkg:'./dist/lanes.min.css',repository:{url:'git+https://github.com/'+repository+'.git'}}));
  const state={head,ci:'success',tag:null,release:null,assets:[],calls:[]};
  const save=()=>writeFileSync(join(root,'state.json'),JSON.stringify(state));save();
  const executable=(name,code)=>writeFileSync(join(root,'bin',name),'#!'+process.execPath+'\n'+code,{mode:0o700});
@@ -51,4 +51,10 @@ test('stage submission uses exact candidate, requests provenance and strips unre
 });
 test('changed candidate bytes and unsuccessful CI cannot be staged',t=>{
  const f=fixture(t);writeFileSync(join(f.root,'release/lanes.css'),'different');assert.notEqual(f.run('stage').status,0);const g=fixture(t);g.state.ci='failure';g.save();assert.notEqual(g.run('stage').status,0);
+});
+test('release preparation derives a different product repository from package metadata',t=>{
+ const repository='ehven-consultants-npm-products/example-styles',f=fixture(t,repository);
+ const result=f.run('draft');assert.equal(result.status,0,result.stderr);
+ for(const call of f.remote().calls)if(call[0]==='api')assert.ok(call.some(arg=>arg.includes(repository)),JSON.stringify(call));
+ assert.equal(f.remote().release.name,'@ehven/lanes 1.0.0');
 });

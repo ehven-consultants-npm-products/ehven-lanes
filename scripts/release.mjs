@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, mkdtempSync, rmSync, lstatSync, appendFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, resolve } from 'node:path';
+import { join, resolve, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -16,6 +16,12 @@ const github=path=>json('gh',['api',path]);
 const bounded=file=>{const stat=lstatSync(file);if(!stat.isFile()||stat.size>32*1024*1024)throw Error('Expected bounded regular release file');return readFileSync(file);};
 const metadata=()=>{const pkg=JSON.parse(readFileSync('package.json','utf8'));if(!/^@ehven\/[a-z0-9._-]+$/.test(pkg.name??'')||!/^\d+\.\d+\.\d+$/.test(pkg.version??''))throw Error('Invalid package release identity');return pkg;};
 
+function directAssets(pkg) {
+ const paths=[...new Set([pkg.style,pkg.unpkg].filter(Boolean).map(x=>x.replace(/^\.\//,'')))];
+ if(paths.some(x=>!/^[-A-Za-z0-9._/]+$/.test(x)||x.startsWith('/')||x.split('/').some(v=>!v||v==='.'||v==='..'))||new Set(paths.map(path=>basename(path))).size!==paths.length)throw Error('Invalid direct asset paths');
+ return paths;
+}
+
 export function prepare() {
  const pkg=metadata(),repository=productRepository();
  if(!/^@ehven\/[a-z0-9._-]+$/.test(pkg.name??'')||!/^\d+\.\d+\.\d+$/.test(pkg.version)||pkg.repository.url!==`git+https://github.com/${repository}.git`)throw Error('Package release identity mismatch');
@@ -24,17 +30,17 @@ export function prepare() {
  const entries=Array.isArray(response)?response:Object.values(response);
  if(entries.length!==1||entries[0].name!==pkg.name||entries[0].version!==pkg.version)throw Error('Unexpected packed identity');
  const packed=entries[0];
- const expected=['CHANGELOG.md','LICENSE','README.md','SECURITY.md','dist/lanes.css','dist/lanes.min.css','docs/delivery.md','docs/installation.md','package.json'].sort();
+ const expected=[...new Set([...(pkg.files??[]),'LICENSE','README.md','package.json'])].sort();
  if(JSON.stringify(packed.files.map(x=>x.path).sort())!==JSON.stringify(expected))throw Error('Unexpected package file inventory');
- for(const name of ['lanes.css','lanes.min.css']) {
-   const css=bounded(join('dist',name));
-   const inside=run('tar',['-xOzf',join('release',packed.filename),'--','package/dist/'+name]);
+ for(const path of directAssets(pkg)) {
+   const name=basename(path),css=bounded(path);
+   const inside=run('tar',['-xOzf',join('release',packed.filename),'--','package/'+path]);
    if(!css.equals(inside))throw Error('CSS artifact differs from packed output');
-   copyFileSync(join('dist',name),join('release',name));
+   copyFileSync(path,join('release',name));
  }
  const tar=bounded(join('release',packed.filename));
  if('sha512-'+sha(tar,'sha512','base64')!==packed.integrity)throw Error('Packed integrity mismatch');
- const names=[packed.filename,'lanes.css','lanes.min.css'];
+ const names=[packed.filename,...directAssets(pkg).map(path=>basename(path))];
  writeFileSync('release/SHA256SUMS',names.map(name=>sha(bounded(join('release',name)))+'  '+name+'\n').join(''));
  const candidate={schemaVersion:1,repository,name:pkg.name,version:pkg.version,tag:'v'+pkg.version,tarball:packed.filename,integrity:packed.integrity,assets:[...names,'SHA256SUMS'].map(name=>({name,sha256:sha(bounded(join('release',name)))}))};
  writeFileSync('release/candidate.json',JSON.stringify(candidate,null,2)+'\n');
@@ -45,8 +51,8 @@ export function prepare() {
 function candidate() {
  const value=JSON.parse(bounded('release/candidate.json'));
  const pkg=metadata(),repository=productRepository();
- if(value.repository!==repository||value.name!==pkg.name||value.version!==pkg.version||value.tag!=='v'+pkg.version||value.tarball!==pkg.name.slice(1).replace('/','-')+'-'+pkg.version+'.tgz'||!Array.isArray(value.assets)||value.assets.length!==4||new Set(value.assets.map(x=>x.name)).size!==4)throw Error('Candidate metadata mismatch');
- const names=[value.tarball,'lanes.css','lanes.min.css','SHA256SUMS'];
+ if(value.repository!==repository||value.name!==pkg.name||value.version!==pkg.version||value.tag!=='v'+pkg.version||value.tarball!==pkg.name.slice(1).replace('/','-')+'-'+pkg.version+'.tgz'||value.schemaVersion!==1||!Array.isArray(value.assets)||value.assets.length!==directAssets(pkg).length+2||new Set(value.assets.map(x=>x.name)).size!==value.assets.length)throw Error('Candidate metadata mismatch');
+ const names=[value.tarball,...directAssets(pkg).map(path=>basename(path)),'SHA256SUMS'];
  for(const asset of value.assets)if(!names.includes(asset.name)||sha(bounded(join('release',asset.name)))!==asset.sha256)throw Error('Candidate asset changed');
  if('sha512-'+sha(bounded(join('release',value.tarball)),'sha512','base64')!==value.integrity)throw Error('Candidate tarball changed');
  return value;
@@ -64,7 +70,7 @@ function currentMain() {
 
 export function draft() {
  const value=candidate(),head=currentMain(),repository=productRepository();
- const title='Lanes '+value.version,notes='CSS-only responsive lanes. See the versioned README and changelog for usage, compatibility and changes.';
+ const title=value.name+' '+value.version,notes='See the versioned README and changelog for usage, compatibility and changes.';
  let ref;
  try {ref=github(`repos/${repository}/git/ref/tags/${value.tag}`).object;}
  catch(e){if(!/HTTP 404/i.test(String(e.stderr??'')))throw e;}
@@ -94,13 +100,13 @@ export function draft() {
    }
    for(const asset of value.assets)if(!observed.has(asset.name))run('gh',['release','upload',value.tag,'--repo',repository,join('release',asset.name)]);
    const final=json('gh',['release','view',value.tag,'--repo',repository,'--json','databaseId,isDraft,assets']);
-   if(final.databaseId!==release.databaseId||!final.isDraft||final.assets.length!==4)throw Error('Draft changed while preparing');
+   if(final.databaseId!==release.databaseId||!final.isDraft||final.assets.length!==value.assets.length)throw Error('Draft changed while preparing');
    for(const asset of value.assets) {
      const file=join(temporary,'verified-'+asset.name);run('gh',['release','download',value.tag,'--repo',repository,'--pattern',asset.name,'--output',file]);
      if(sha(bounded(file))!==asset.sha256)throw Error('Draft readback differs');
    }
  } finally {rmSync(temporary,{recursive:true,force:true});}
- return {draft:true,tag:value.tag,source:head,assetsVerified:4};
+ return {draft:true,tag:value.tag,source:head,assetsVerified:value.assets.length};
 }
 
 export function stage() {
