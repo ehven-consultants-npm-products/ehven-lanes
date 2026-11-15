@@ -1,0 +1,64 @@
+{
+  "name": "@ehven/lanes",
+  "version": "1.0.0",
+  "description": "Framework-agnostic CSS masonry layout with progressive enhancement to CSS Grid Lanes.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Gilad Ehven",
+  "homepage": "https://github.com/ehven-consultants-npm-products/ehven-lanes#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ehven-consultants-npm-products/ehven-lanes.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ehven-consultants-npm-products/ehven-lanes/issues"
+  },
+  "keywords": [
+    "css",
+    "grid-lanes",
+    "lanes",
+    "masonry",
+    "responsive",
+    "waterfall-layout"
+  ],
+  "files": [
+    "dist/lanes.css",
+    "dist/lanes.min.css",
+    "docs/installation.md",
+    "docs/delivery.md",
+    "CHANGELOG.md",
+    "SECURITY.md"
+  ],
+  "style": "./dist/lanes.css",
+  "unpkg": "./dist/lanes.min.css",
+  "jsdelivr": "./dist/lanes.min.css",
+  "exports": {
+    ".": "./dist/lanes.css",
+    "./lanes.css": "./dist/lanes.css",
+    "./lanes.min.css": "./dist/lanes.min.css",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "pnpm run build && node --test",
+    "check": "pnpm run test && npm pack --dry-run --ignore-scripts",
+    "prepack": "pnpm run build",
+    "check:browser": "node qa/browser.mjs",
+    "release:prepare": "node scripts/release.mjs prepare"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "lightningcss": "1.33.0",
+    "playwright": "1.64.1"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "funding": {
+    "type": "custom",
+    "url": "https://ehven.com/contact/"
+  }
+}

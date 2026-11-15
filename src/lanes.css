@@ -1,0 +1,82 @@
+/*
+ * Responsive waterfall layout for independent peer items.
+ *
+ * CSS Multi-column Layout provides the dependable baseline. Browsers that
+ * support CSS Grid Lanes upgrade automatically without JavaScript sizing or
+ * placement.
+ *
+ * Public custom properties:
+ *
+ * --ehven-lanes-gap
+ * --ehven-lanes-lane-minimum
+ * --ehven-lanes-flow-tolerance
+ *
+ * Opt-in order: data-ehven-lanes-order="horizontal" cycles across lanes;
+ * "rows" keeps aligned rows. Unsupported native placement uses aligned rows.
+ */
+
+.ehven-lanes {
+  display: block;
+  column-width: var(--ehven-lanes-lane-minimum, 18rem);
+  column-fill: balance;
+  column-gap: var(--ehven-lanes-gap, 1rem);
+}
+
+.ehven-lanes > * {
+  margin-block-end: var(--ehven-lanes-gap, 1rem);
+  break-inside: avoid;
+}
+
+.ehven-lanes[data-ehven-lanes-order="horizontal"],
+.ehven-lanes[data-ehven-lanes-order="rows"] {
+  display: grid;
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(min(100%, var(--ehven-lanes-lane-minimum, 18rem)), 1fr)
+    );
+  grid-auto-flow: row;
+  align-items: start;
+  column-width: auto;
+  gap: var(--ehven-lanes-gap, 1rem);
+}
+
+.ehven-lanes[data-ehven-lanes-order="horizontal"] > *,
+.ehven-lanes[data-ehven-lanes-order="rows"] > * {
+  min-inline-size: 0;
+  margin-block-end: 0;
+}
+
+@supports (display: grid-lanes) {
+  .ehven-lanes {
+    display: grid-lanes;
+    grid-template-columns:
+      repeat(
+        auto-fit,
+        minmax(
+          min(
+            100%,
+            var(--ehven-lanes-lane-minimum, 18rem)
+          ),
+          1fr
+        )
+      );
+    column-width: auto;
+    gap: var(--ehven-lanes-gap, 1rem);
+    /* Retain the public hook across the native property rename. */
+    flow-tolerance: var(--ehven-lanes-flow-tolerance, normal);
+    fit-tolerance: var(--ehven-lanes-flow-tolerance, normal);
+  }
+
+  .ehven-lanes > * {
+    margin-block-end: 0;
+  }
+
+  @supports (fit-tolerance: infinite) or (flow-tolerance: infinite) {
+    .ehven-lanes[data-ehven-lanes-order="horizontal"] {
+      display: grid-lanes;
+      flow-tolerance: infinite;
+      fit-tolerance: infinite;
+    }
+  }
+}
