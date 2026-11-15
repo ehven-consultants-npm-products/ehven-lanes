@@ -74,21 +74,28 @@ export function draft() {
  let ref;
  try {ref=github(`repos/${repository}/git/ref/tags/${value.tag}`).object;}
  catch(e){if(!/HTTP 404/i.test(String(e.stderr??'')))throw e;}
- if(ref&&(ref.type!=='commit'||ref.sha!==head))throw Error('Release tag differs from the verified source');
+ if(ref&&ref.type!=='commit')throw Error('Expected a direct source tag');
  if(!ref){run('gh',['api','--method','POST',`repos/${repository}/git/refs`,'-f','ref=refs/tags/'+value.tag,'-f','sha='+head]);ref=github(`repos/${repository}/git/ref/tags/${value.tag}`).object;}
- if(ref.type!=='commit'||ref.sha!==head)throw Error('Release tag readback differs');
+ if(ref.type!=='commit')throw Error('Release tag readback differs');
+ const previousTag=ref.sha;
  let release;
  try {release=json('gh',['release','view',value.tag,'--repo',repository,'--json','databaseId,isDraft,isImmutable,tagName,name,body,assets']);}
  catch(e) {if(!/release not found|HTTP 404/i.test(String(e.stderr??'')))throw e;}
  if(release) {
-   if(!release.isDraft||release.tagName!==value.tag||release.name!==title||release.body!==notes)throw Error('Existing release conflicts with this draft');
+   if(!release.isDraft||release.isImmutable!==false||release.tagName!==value.tag||release.name!==title||release.body!==notes)throw Error('Existing release conflicts with this draft');
+   if(previousTag!==head) {
+     if(release.assets.length!==value.assets.length)throw Error('Only a complete identical draft can advance its source tag');
+     const comparison=github(`repos/${repository}/compare/${previousTag}...${head}?per_page=1`);
+     if(comparison.status!=='ahead'||comparison.behind_by!==0)throw Error('Draft source tag must fast-forward');
+   }
  } else {
+   if(previousTag!==head)throw Error('Existing source tag has no identical draft');
    run('gh',['release','create',value.tag,'--repo',repository,'--verify-tag','--draft','--title',title,'--notes',notes]);
    release=json('gh',['release','view',value.tag,'--repo',repository,'--json','databaseId,isDraft,tagName,name,body,assets']);
    if(!release.isDraft)throw Error('Expected unpublished draft');
  }
  ref=github(`repos/${repository}/git/ref/tags/${value.tag}`).object;
- if(ref.type!=='commit'||ref.sha!==head)throw Error('Release tag differs from the verified source');
+ if(ref.type!=='commit'||ref.sha!==previousTag)throw Error('Release tag changed while preparing');
  const temporary=mkdtempSync(join(tmpdir(),'lanes-assets-'));
  try {
    const expected=new Map(value.assets.map(x=>[x.name,x.sha256]));
@@ -99,14 +106,22 @@ export function draft() {
      if(sha(bounded(file))!==expected.get(asset.name))throw Error('Draft asset conflicts');observed.add(asset.name);
    }
    for(const asset of value.assets)if(!observed.has(asset.name))run('gh',['release','upload',value.tag,'--repo',repository,join('release',asset.name)]);
-   const final=json('gh',['release','view',value.tag,'--repo',repository,'--json','databaseId,isDraft,assets']);
-   if(final.databaseId!==release.databaseId||!final.isDraft||final.assets.length!==value.assets.length)throw Error('Draft changed while preparing');
+   const final=json('gh',['release','view',value.tag,'--repo',repository,'--json','databaseId,isDraft,isImmutable,tagName,name,body,assets']);
+   if(final.databaseId!==release.databaseId||!final.isDraft||final.isImmutable!==false||final.tagName!==value.tag||final.name!==title||final.body!==notes||final.assets.length!==value.assets.length||new Set(final.assets.map(x=>x.name)).size!==value.assets.length||final.assets.some(x=>!expected.has(x.name)))throw Error('Draft changed while preparing');
    for(const asset of value.assets) {
      const file=join(temporary,'verified-'+asset.name);run('gh',['release','download',value.tag,'--repo',repository,'--pattern',asset.name,'--output',file]);
      if(sha(bounded(file))!==asset.sha256)throw Error('Draft readback differs');
    }
+   if(previousTag!==head) {
+     if(currentMain()!==head||github(`repos/${repository}/git/ref/tags/${value.tag}`).object.sha!==previousTag)throw Error('Source changed before draft tag advance');
+     // Unpublished drafts may follow a workflow-only fix when every asset is identical.
+     // Published/immutable releases and divergent tags are never advanced.
+     run('gh',['api','--method','PATCH',`repos/${repository}/git/refs/tags/${value.tag}`,'-f','sha='+head,'-F','force=false']);
+   }
+   ref=github(`repos/${repository}/git/ref/tags/${value.tag}`).object;
+   if(ref.type!=='commit'||ref.sha!==head)throw Error('Final source tag readback differs');
  } finally {rmSync(temporary,{recursive:true,force:true});}
- return {draft:true,tag:value.tag,source:head,assetsVerified:value.assets.length};
+ return {draft:true,tag:value.tag,source:head,assetsVerified:value.assets.length,...(previousTag!==head?{tagAdvancedFrom:previousTag}:{})};
 }
 
 export function stage() {
@@ -115,7 +130,7 @@ export function stage() {
  const temporary=mkdtempSync(join(tmpdir(),'lanes-stage-'));
  try {
    const env={};
-   for(const key of ['PATH','HOME','TMPDIR','LANG','LC_ALL','SSL_CERT_FILE','SSL_CERT_DIR','NODE_EXTRA_CA_CERTS','ACTIONS_ID_TOKEN_REQUEST_URL','ACTIONS_ID_TOKEN_REQUEST_TOKEN','GITHUB_ACTIONS','GITHUB_REPOSITORY','GITHUB_SHA','GITHUB_REF','GITHUB_REF_NAME','GITHUB_REF_TYPE','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_WORKFLOW_REF','GITHUB_WORKFLOW_SHA','GITHUB_SERVER_URL','GITHUB_ACTOR','CI'])if(process.env[key]!==undefined)env[key]=process.env[key];
+   for(const key of ['PATH','HOME','TMPDIR','LANG','LC_ALL','SSL_CERT_FILE','SSL_CERT_DIR','NODE_EXTRA_CA_CERTS','ACTIONS_ID_TOKEN_REQUEST_URL','ACTIONS_ID_TOKEN_REQUEST_TOKEN','GITHUB_ACTIONS','RUNNER_ENVIRONMENT','GITHUB_EVENT_NAME','GITHUB_REPOSITORY_ID','GITHUB_REPOSITORY_OWNER_ID','GITHUB_REPOSITORY','GITHUB_SHA','GITHUB_REF','GITHUB_REF_NAME','GITHUB_REF_TYPE','GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_WORKFLOW_REF','GITHUB_WORKFLOW_SHA','GITHUB_SERVER_URL','GITHUB_ACTOR','CI'])if(process.env[key]!==undefined)env[key]=process.env[key];
    for(const key of ['HTTP_PROXY','HTTPS_PROXY','http_proxy','https_proxy'])if(process.env[key]){if(!['http:','https:'].includes(new URL(process.env[key]).protocol))throw Error('Unsupported proxy');env[key]=process.env[key];}
    Object.assign(env,{NPM_CONFIG_USERCONFIG:join(temporary,'user.npmrc'),NPM_CONFIG_GLOBALCONFIG:join(temporary,'global.npmrc'),NPM_CONFIG_CACHE:join(temporary,'cache'),NPM_CONFIG_REGISTRY:'https://registry.npmjs.org/',NPM_CONFIG_STRICT_SSL:'true',NPM_CONFIG_FETCH_RETRIES:'0',NPM_CONFIG_FETCH_TIMEOUT:'30000',NPM_CONFIG_UPDATE_NOTIFIER:'false',NPM_CONFIG_LOGS_MAX:'0'});
    writeFileSync(env.NPM_CONFIG_USERCONFIG,'',{mode:0o600,flag:'wx'});writeFileSync(env.NPM_CONFIG_GLOBALCONFIG,'',{mode:0o600,flag:'wx'});
