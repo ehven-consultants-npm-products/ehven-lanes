@@ -26,13 +26,14 @@ function fixture(t,repository='ehven-consultants-npm-products/ehven-lanes') {
   if(a[1]==='--method'){s.tag=s.head;out({});}
   else if(a[1].endsWith('/git/ref/heads/main'))out({object:{sha:s.head}});
   else if(a[1].includes('/actions/workflows/'))out({workflow_runs:[{id:1,name:'CI',head_sha:s.head,head_branch:'main',event:'push',status:'completed',conclusion:s.ci}]});
+  else if(a[1].includes('/compare/'))out({status:s.ancestor?'ahead':'diverged',behind_by:s.ancestor?0:1});
   else if(a[1].includes('/git/ref/tags/')){if(!s.tag)bad();out({object:{type:'commit',sha:s.tag}});}else bad();
  }else if(a[1]==='view'){if(!s.release){save();console.error('release not found');process.exit(1)}out({...s.release,assets:s.assets.map(name=>({name}))});}
  else if(a[1]==='create'){s.release={databaseId:12,isDraft:true,isImmutable:false,tagName:a[2],name:a[a.indexOf('--title')+1],body:a[a.indexOf('--notes')+1]};out({});}
  else if(a[1]==='upload'){const src=a.at(-1),name=p.basename(src);if(s.assets.includes(name))process.exit(2);fs.copyFileSync(src,p.join(root,'remote',name));s.assets.push(name);out({});}
  else if(a[1]==='download'){fs.copyFileSync(p.join(root,'remote',a[a.indexOf('--pattern')+1]),a.at(-1));out({});}else bad();`);
- executable('npm',`const fs=require('node:fs'),p=require('node:path'),a=process.argv.slice(2);if(a[0]==='--version'){console.log('12.2.2');process.exit(0)};fs.writeFileSync(p.join(${JSON.stringify(root)},'stage-observation.json'),JSON.stringify({args:a,hasGithubToken:!!process.env.GH_TOKEN,hasNpmToken:!!process.env.NODE_AUTH_TOKEN}));console.log(JSON.stringify({'@ehven/lanes':{name:'@ehven/lanes',version:'1.0.0',integrity:${JSON.stringify(candidate.integrity)},stageId:'12345678-1234-1234-1234-123456789abc'}}));`);
- const run=operation=>spawnSync(process.execPath,[script,operation],{cwd:root,encoding:'utf8',timeout:10000,env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,FIXTURE_ROOT:root,GITHUB_REPOSITORY:repository,GITHUB_SHA:head,GH_TOKEN:'synthetic-gh',NODE_AUTH_TOKEN:'synthetic-npm'}});
+ executable('npm',`const fs=require('node:fs'),p=require('node:path'),a=process.argv.slice(2);if(a[0]==='--version'){console.log('12.2.2');process.exit(0)};fs.writeFileSync(p.join(${JSON.stringify(root)},'stage-observation.json'),JSON.stringify({args:a,hasGithubToken:!!process.env.GH_TOKEN,hasNpmToken:!!process.env.NODE_AUTH_TOKEN,provenance:Object.fromEntries(['GITHUB_EVENT_NAME','GITHUB_REPOSITORY_ID','GITHUB_REPOSITORY_OWNER_ID'].map(key=>[key,process.env[key]]))}));console.log(JSON.stringify({'@ehven/lanes':{name:'@ehven/lanes',version:'1.0.0',integrity:${JSON.stringify(candidate.integrity)},stageId:'12345678-1234-1234-1234-123456789abc'}}));`);
+ const run=operation=>spawnSync(process.execPath,[script,operation],{cwd:root,encoding:'utf8',timeout:10000,env:{...process.env,PATH:join(root,'bin')+':'+process.env.PATH,FIXTURE_ROOT:root,GITHUB_REPOSITORY:repository,GITHUB_SHA:head,GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REPOSITORY_ID:'1459109285',GITHUB_REPOSITORY_OWNER_ID:'357065375',GH_TOKEN:'synthetic-gh',NODE_AUTH_TOKEN:'synthetic-npm'}});
  const remote=()=>JSON.parse(readFileSync(join(root,'state.json')));
  return{root,state,save,run,remote};
 }
@@ -46,8 +47,8 @@ test('failed CI and conflicting source tags prevent all draft creation',t=>{
 test('conflicting existing assets are never overwritten',t=>{
  const f=fixture(t);assert.equal(f.run('draft').status,0);writeFileSync(join(f.root,'remote/lanes.css'),'different');const before=f.remote().calls.filter(x=>x[1]==='upload').length;assert.notEqual(f.run('draft').status,0);assert.equal(f.remote().calls.filter(x=>x[1]==='upload').length,before);
 });
-test('stage submission uses exact candidate, requests provenance and strips unrelated credentials',t=>{
- const f=fixture(t),result=f.run('stage');assert.equal(result.status,0,result.stderr);const value=JSON.parse(result.stdout);assert.equal(value.published,false);const observed=JSON.parse(readFileSync(join(f.root,'stage-observation.json')));assert.deepEqual(observed.args.slice(0,2),['stage','publish']);assert.ok(observed.args.includes('--provenance'));assert.ok(!observed.args.includes('approve'));assert.equal(observed.hasGithubToken,false);assert.equal(observed.hasNpmToken,false);
+test('stage submission preserves required provenance fields while stripping unrelated credentials',t=>{
+ const f=fixture(t),result=f.run('stage');assert.equal(result.status,0,result.stderr);const value=JSON.parse(result.stdout);assert.equal(value.published,false);const observed=JSON.parse(readFileSync(join(f.root,'stage-observation.json')));assert.deepEqual(observed.args.slice(0,2),['stage','publish']);assert.ok(observed.args.includes('--provenance'));assert.ok(!observed.args.includes('approve'));assert.equal(observed.hasGithubToken,false);assert.equal(observed.hasNpmToken,false);assert.deepEqual(observed.provenance,{GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REPOSITORY_ID:'1459109285',GITHUB_REPOSITORY_OWNER_ID:'357065375'});
 });
 test('changed candidate bytes and unsuccessful CI cannot be staged',t=>{
  const f=fixture(t);writeFileSync(join(f.root,'release/lanes.css'),'different');assert.notEqual(f.run('stage').status,0);const g=fixture(t);g.state.ci='failure';g.save();assert.notEqual(g.run('stage').status,0);
@@ -57,4 +58,16 @@ test('release preparation derives a different product repository from package me
  const result=f.run('draft');assert.equal(result.status,0,result.stderr);
  for(const call of f.remote().calls)if(call[0]==='api')assert.ok(call.some(arg=>arg.includes(repository)),JSON.stringify(call));
  assert.equal(f.remote().release.name,'@ehven/lanes 1.0.0');
+});
+test('an identical complete unpublished draft can advance its tag without replacing assets',t=>{
+ const f=fixture(t);assert.equal(f.run('draft').status,0);let s=f.remote();s.tag='b'.repeat(40);s.ancestor=true;writeFileSync(join(f.root,'state.json'),JSON.stringify(s));
+ const result=f.run('draft');assert.equal(result.status,0,result.stderr);s=f.remote();assert.equal(s.tag,s.head);assert.equal(s.calls.filter(x=>x[1]==='upload').length,4);
+ const update=s.calls.find(x=>x.includes('PATCH'));assert.ok(update);assert.ok(update.includes('force=false'));assert.equal(JSON.parse(result.stdout).tagAdvancedFrom,'b'.repeat(40));
+});
+test('published, divergent, incomplete or changed drafts cannot advance their tags',t=>{
+ for(const scenario of [{change:s=>s.release.isDraft=false},{change:s=>s.release.isImmutable=true},{change:s=>s.ancestor=false},{change:s=>s.assets.pop()},{change:s=>{},corrupt:true}]){
+  const f=fixture(t);assert.equal(f.run('draft').status,0);const s=f.remote();s.tag='b'.repeat(40);s.ancestor=true;scenario.change(s);writeFileSync(join(f.root,'state.json'),JSON.stringify(s));
+  if(scenario.corrupt)writeFileSync(join(f.root,'remote/lanes.css'),'changed');
+  assert.notEqual(f.run('draft').status,0);assert.equal(f.remote().tag,'b'.repeat(40));assert.equal(f.remote().calls.some(x=>x.includes('PATCH')),false);
+ }
 });
