@@ -109,13 +109,19 @@ async function checkEnhancement(page, css, module, force, rtl, observations) {
     root.style.setProperty('--ehven-lanes-block-size', '123px', 'important');
     root.firstElementChild.style.setProperty('--ehven-lanes-item-inline', '77px', 'important');
     root.firstElementChild.style.transform = 'translateY(2px)';
-    return { root: root.getAttribute('style'), card: root.firstElementChild.getAttribute('style'), html: root.innerHTML };
+    window.cleanupNodes = [...root.children];
+    const styles = node => [...node.style].map(name=>[name,node.style.getPropertyValue(name),node.style.getPropertyPriority(name)]).sort();
+    return { root: styles(root), cards: [...root.children].map(node=>({styles:styles(node),attributes:[...node.attributes].filter(a=>a.name!=='style').map(a=>[a.name,a.value]),html:node.innerHTML})) };
   });
   await page.addScriptTag({ type: 'module', content: module + '\nwindow.cleanupController = enhanceLanes(document.querySelector(".ehven-lanes"), {force:true});' });
   await settleEnhancement(page);
   await page.evaluate(() => window.cleanupController.destroy());
-  const after = await page.locator('.ehven-lanes').evaluate(root => ({ root: root.getAttribute('style'), card: root.firstElementChild.getAttribute('style'), html: root.innerHTML }));
+  const after = await page.locator('.ehven-lanes').evaluate(root => {
+    const styles = node => [...node.style].map(name=>[name,node.style.getPropertyValue(name),node.style.getPropertyPriority(name)]).sort();
+    return { root: styles(root), cards: [...root.children].map(node=>({styles:styles(node),attributes:[...node.attributes].filter(a=>a.name!=='style').map(a=>[a.name,a.value]),html:node.innerHTML})) };
+  });
   assert.deepEqual(after, before, 'Destroy restores preexisting values/priorities and unchanged consumer nodes');
+  assert.equal(await page.locator('.ehven-lanes').evaluate(root=>[...root.children].every((node,i)=>node===window.cleanupNodes[i])),true,'Consumer node identities are preserved');
 
   await fixture(page, css, 'horizontal', rtl);
   await page.locator('.ehven-lanes').evaluate(root => {
