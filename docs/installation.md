@@ -159,7 +159,7 @@ add_action(
                 '/assets/vendor/ehven-lanes/lanes.min.css'
             ),
             array(),
-            '1.0.0'
+            '1.1.0'
         );
     }
 );
@@ -183,7 +183,7 @@ Alternatively, use the version-pinned npm CDN URL:
 ```html
 <link
   rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.0.0/dist/lanes.min.css"
+  href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.0/dist/lanes.min.css"
 />
 ```
 
@@ -194,7 +194,7 @@ Add the version-pinned stylesheet link to the project's site-wide `<head>` custo
 ```html
 <link
   rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.0.0/dist/lanes.min.css"
+  href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.0/dist/lanes.min.css"
 />
 ```
 
@@ -253,4 +253,25 @@ Keep direct children in meaningful source order and avoid explicit column placem
 
 The existing `--ehven-lanes-flow-tolerance` hook controls native placement only in the original mode. Horizontal mode uses infinite native tolerance deliberately, and rows mode has no masonry tolerance. The package maps the existing hook to both old and new browser property names.
 
-UI can change the attribute without reordering/measuring cards. Test focus and comprehension; do not add positive tabindex. No switch UI or JavaScript polyfill ships.
+UI can change the attribute without reordering/measuring cards. Test focus and comprehension; do not add positive tabindex. No switch UI ships. Initialize the optional enhancement for horizontal placement in browsers lacking the native features.
+
+
+## Reliable horizontal placement
+
+Import the stylesheet through the existing pipeline, set `data-ehven-lanes-order="horizontal"`, then initialize the optional module in browser code:
+
+```js
+import { enhanceLanes } from '@ehven/lanes/enhance';
+const container = document.querySelector('.ehven-lanes[data-ehven-lanes-order="horizontal"]');
+const layout = container instanceof HTMLElement ? enhanceLanes(container) : undefined;
+```
+
+This keeps native cyclic placement where available and supplies cyclic, uneven-top placement elsewhere in the supported browser matrix. Without initialization, the CSS-only fallback remains aligned rows. `rows` always retains aligned rows; omitted/vertical retains the existing progressive default. Direction follows LTR/RTL. Only ordinary direct-child, single-lane boxes in horizontal writing mode are supported.
+
+The module uses ResizeObserver, MutationObserver and requestAnimationFrame; it has no runtime imports, remote calls or automatic document-wide initialization. It responds to responsive sizing, text/content changes, hidden cards, insertions/removals and order-attribute changes. Use gap for spacing, not item margins or self-positioning. Existing DOM and keyboard order remain intact.
+
+Call `layout?.refresh()` after a stylesheet-only change to lane minimum/gap if it does not cause a resize or DOM observation. Call `layout?.destroy()` before a component unmounts. Repeated initialization returns the existing controller; the first options apply. `{force:true}` selects the JS path even with native support for testing. Importing the module during SSR is safe; calling it requires a live HTML container. TypeScript declarations accompany the module.
+
+In Astro, put the initialization in a processed `<script>` so the module is bundled. With client-side navigation, destroy before the old content is removed and initialize after new content is mounted. Other frameworks use the same two lifecycle points. Keep the helper optional; do not replace the site's existing CSS pipeline.
+
+For static HTML or WordPress without a JS build pipeline, download `enhance.mjs` together with the CSS from the same release, verify SHA256SUMS, serve the module as JavaScript, and use a module script with the equivalent initialization. Remove/destroy the helper and its import to return to CSS-only behavior.

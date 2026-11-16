@@ -22,6 +22,7 @@
   column-gap: var(--ehven-lanes-gap, 1rem);
 }
 
+
 .ehven-lanes > * {
   margin-block-end: var(--ehven-lanes-gap, 1rem);
   break-inside: avoid;
@@ -79,4 +80,31 @@
       fit-tolerance: infinite;
     }
   }
+}
+
+/* Optional enhancement-owned layout; CSS-only consumers never activate it. */
+.ehven-lanes[data-ehven-lanes-enhanced] {
+  display: block;
+  position: relative;
+  column-width: auto;
+  block-size: var(--ehven-lanes-block-size, auto);
+}
+
+.ehven-lanes[data-ehven-lanes-enhanced] > * {
+  box-sizing: border-box;
+  position: absolute;
+  inline-size: var(--ehven-lanes-item-size);
+  inset-inline-start: var(--ehven-lanes-item-inline);
+  inset-block-start: var(--ehven-lanes-item-block);
+  margin: 0;
+}
+
+.ehven-lanes[data-ehven-lanes-enhanced][data-ehven-lanes-measuring] {
+  display: grid;
+  block-size: auto;
+}
+
+.ehven-lanes[data-ehven-lanes-enhanced][data-ehven-lanes-measuring] > * {
+  position: static;
+  inline-size: auto;
 }

@@ -17,7 +17,7 @@ const bounded=file=>{const stat=lstatSync(file);if(!stat.isFile()||stat.size>32*
 const metadata=()=>{const pkg=JSON.parse(readFileSync('package.json','utf8'));if(!/^@ehven\/[a-z0-9._-]+$/.test(pkg.name??'')||!/^\d+\.\d+\.\d+$/.test(pkg.version??''))throw Error('Invalid package release identity');return pkg;};
 
 function directAssets(pkg) {
- const paths=[...new Set([pkg.style,pkg.unpkg].filter(Boolean).map(x=>x.replace(/^\.\//,'')))];
+ const paths=[...new Set([pkg.style,pkg.unpkg,...Object.values(pkg.exports??{}).filter(value=>typeof value==='string'&&value.startsWith('./dist/'))].filter(Boolean).map(x=>x.replace(/^\.\//,'')))];
  if(paths.some(x=>!/^[-A-Za-z0-9._/]+$/.test(x)||x.startsWith('/')||x.split('/').some(v=>!v||v==='.'||v==='..'))||new Set(paths.map(path=>basename(path))).size!==paths.length)throw Error('Invalid direct asset paths');
  return paths;
 }
@@ -35,7 +35,7 @@ export function prepare() {
  for(const path of directAssets(pkg)) {
    const name=basename(path),css=bounded(path);
    const inside=run('tar',['-xOzf',join('release',packed.filename),'--','package/'+path]);
-   if(!css.equals(inside))throw Error('CSS artifact differs from packed output');
+   if(!css.equals(inside))throw Error('Release asset differs from packed output');
    copyFileSync(path,join('release',name));
  }
  const tar=bounded(join('release',packed.filename));

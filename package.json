@@ -1,7 +1,7 @@
 {
   "name": "@ehven/lanes",
-  "version": "1.0.0",
-  "description": "Framework-agnostic CSS masonry layout with progressive enhancement to CSS Grid Lanes.",
+  "version": "1.1.0",
+  "description": "CSS-first masonry with native Grid Lanes and optional dependency-free horizontal placement.",
   "type": "module",
   "license": "MIT",
   "author": "Gilad Ehven",
@@ -24,6 +24,8 @@
   "files": [
     "dist/lanes.css",
     "dist/lanes.min.css",
+    "dist/enhance.mjs",
+    "dist/enhance.d.mts",
     "docs/installation.md",
     "docs/delivery.md",
     "CHANGELOG.md",
@@ -36,7 +38,8 @@
     ".": "./dist/lanes.css",
     "./lanes.css": "./dist/lanes.css",
     "./lanes.min.css": "./dist/lanes.min.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./enhance": "./dist/enhance.mjs"
   },
   "sideEffects": [
     "**/*.css"
