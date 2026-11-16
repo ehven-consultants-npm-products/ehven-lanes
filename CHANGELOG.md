@@ -6,7 +6,20 @@ The project follows Semantic Versioning.
 
 ## [Unreleased]
 
-## [1.0.0] - Unreleased
+## [1.1.0] - Unreleased
+
+### Added
+
+- Optional `@ehven/lanes/enhance` module for cyclic horizontal placement with uneven card tops across supported browsers, retaining native layout where available.
+- Responsive/content observation, LTR/RTL placement, explicit refresh/destroy lifecycle, idempotent mounting and TypeScript declarations without runtime dependencies.
+- Manual `enhance.mjs` delivery alongside CSS with versioned checksum verification.
+
+### Clarified
+
+- CSS-only horizontal mode retains aligned-row fallback without the required native features. Initialize the enhancement to guarantee the cyclic layout across the supported browser matrix.
+- Explicit rows mode remains aligned; default/vertical behavior remains unchanged.
+
+## [1.0.0] - 2026-11-16
 
 ### Added
 

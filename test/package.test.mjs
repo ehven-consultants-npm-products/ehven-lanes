@@ -127,7 +127,7 @@ test('the actual tarball contains only the consumer distribution allowlist', asy
     assert.equal(info.name, packageMetadata.name);
     assert.ok(Array.isArray(info.files), 'Expected the full packed-file inventory');
     assert.deepEqual(info.files.map(file => file.path).sort(), [
-      'CHANGELOG.md', 'LICENSE', 'README.md', 'SECURITY.md', 'dist/lanes.css', 'dist/lanes.min.css',
+      'CHANGELOG.md', 'LICENSE', 'README.md', 'SECURITY.md', 'dist/enhance.mjs', 'dist/enhance.d.mts', 'dist/lanes.css', 'dist/lanes.min.css',
       'docs/delivery.md', 'docs/installation.md', 'package.json',
     ].sort());
     for (const file of info.files.filter(file => file.path.endsWith('.md'))) {
@@ -136,4 +136,16 @@ test('the actual tarball contains only the consumer distribution allowlist', asy
       assert.doesNotMatch(contents.stdout, /BEGIN .*PRIVATE KEY/);
     }
   } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+// The module is safe to import during SSR; it touches the DOM only when called.
+test('optional enhancement imports without a browser and rejects non-container input', async () => {
+  const {enhanceLanes} = await import('../dist/enhance.mjs');
+  assert.throws(() => enhanceLanes(null), /HTML.*container/);
+});
+
+test('the optional module is shipped unchanged and has no runtime imports', async () => {
+  const source = await readFile(new URL('src/enhance.mjs', projectRoot), 'utf8');
+  assert.equal(await readFile(new URL('dist/enhance.mjs', projectRoot), 'utf8'), source);
+  assert.doesNotMatch(source, /(?:^|\n)import\s/);
 });

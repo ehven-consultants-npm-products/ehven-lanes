@@ -56,6 +56,117 @@ function checkOrdered(value, columns, cyclic, rtl = false) {
   }
 }
 
+const settleEnhancement = page => page.evaluate(() => new Promise(done => {
+  requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(done)));
+}));
+
+async function checkEnhancement(page, css, module, force, rtl, observations) {
+  await fixture(page, css, 'horizontal', rtl);
+  await page.addScriptTag({ type: 'module', content: module + `\nwindow.enhanceLanes = enhanceLanes; window.lanesController = enhanceLanes(document.querySelector('.ehven-lanes'), {force: ${force}});` });
+  await settleEnhancement(page);
+  const initial = await geometry(page);
+  checkOrdered(initial, 3, true, rtl);
+  assert.ok(initial.boxes[4].y < initial.boxes[3].y, 'Enhancement must deliver A, never aligned rows');
+  assert.equal(await page.evaluate(() => enhanceLanes(document.querySelector('.ehven-lanes')) === window.lanesController), true, 'Mounting is idempotent');
+  const native = initial.native && initial.cyclic && !force;
+  assert.equal(await page.locator('.ehven-lanes').getAttribute('data-ehven-lanes-enhanced'), native ? null : '');
+  for (let i = 0; i < heights.length; i++) {
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.id), `card-${i + 1}`, 'Enhanced focus preserves DOM order');
+  }
+  await page.locator('#card-1').evaluate(item => { item.style.height = '310px'; });
+  await settleEnhancement(page); checkOrdered(await geometry(page), 3, true, rtl);
+  for (const [width, columns] of [[420, 2], [180, 1], [650, 3]]) {
+    await page.locator('.ehven-lanes').evaluate((element, width) => { element.style.width = width + 'px'; }, width);
+    await settleEnhancement(page); checkOrdered(await geometry(page), columns, true, rtl);
+  }
+  await page.locator('.ehven-lanes').evaluate(element => {
+    element.style.setProperty('--ehven-lanes-lane-minimum', 'calc(10rem + 20px)');
+    element.style.setProperty('--ehven-lanes-gap', '0px');
+  });
+  await settleEnhancement(page); checkOrdered(await geometry(page), 3, true, rtl);
+  await page.locator('#card-2').evaluate(item => { item.hidden = true; });
+  await settleEnhancement(page); checkOrdered(await geometry(page), 3, true, rtl);
+  await page.locator('.ehven-lanes').evaluate(element => {
+    const card = document.createElement('article'); card.style.height = '75px'; element.append(card);
+  });
+  await settleEnhancement(page); checkOrdered(await geometry(page), 3, true, rtl);
+  await page.locator('.ehven-lanes').evaluate(element => { element.dataset.ehvenLanesOrder = 'rows'; });
+  await settleEnhancement(page); checkOrdered(await geometry(page), 3, false, rtl);
+  assert.equal(await page.locator('.ehven-lanes').getAttribute('data-ehven-lanes-enhanced'), null, 'Switching to rows restores CSS ownership');
+  await page.locator('.ehven-lanes').evaluate(element => { element.dataset.ehvenLanesOrder = 'horizontal'; });
+  await settleEnhancement(page); checkOrdered(await geometry(page), 3, true, rtl);
+  await page.locator('.ehven-lanes').evaluate(element => { element.replaceChildren(); });
+  await settleEnhancement(page); assert.equal((await geometry(page)).boxes.length, 0);
+  await page.evaluate(() => { window.lanesController.destroy(); window.lanesController.destroy(); });
+  assert.equal(await page.locator('.ehven-lanes').getAttribute('data-ehven-lanes-enhanced'), null);
+  assert.equal(await page.locator('.ehven-lanes').getAttribute('data-ehven-lanes-measuring'), null);
+  observations.push({ mode: 'enhanced-horizontal', force, rtl, native, contracts: 'cyclic uneven tops, focus, dynamic height, resize, CSS calc, zero gap, hide/append/empty, rows switch, idempotence, cleanup' });
+
+  // Explicit unmount restores only helper-owned state, preserving host styles/content.
+  await fixture(page, css, 'horizontal', rtl);
+  const before = await page.locator('.ehven-lanes').evaluate(root => {
+    root.style.setProperty('--ehven-lanes-block-size', '123px', 'important');
+    root.firstElementChild.style.setProperty('--ehven-lanes-item-inline', '77px', 'important');
+    root.firstElementChild.style.transform = 'translateY(2px)';
+    return { root: root.getAttribute('style'), card: root.firstElementChild.getAttribute('style'), html: root.innerHTML };
+  });
+  await page.addScriptTag({ type: 'module', content: module + '\nwindow.cleanupController = enhanceLanes(document.querySelector(".ehven-lanes"), {force:true});' });
+  await settleEnhancement(page);
+  await page.evaluate(() => window.cleanupController.destroy());
+  const after = await page.locator('.ehven-lanes').evaluate(root => ({ root: root.getAttribute('style'), card: root.firstElementChild.getAttribute('style'), html: root.innerHTML }));
+  assert.deepEqual(after, before, 'Destroy restores preexisting values/priorities and unchanged consumer nodes');
+
+  await fixture(page, css, 'horizontal', rtl);
+  await page.locator('.ehven-lanes').evaluate(root => {
+    root.style.padding = '17px'; root.style.border = '3px solid'; root.style.boxSizing = 'border-box';
+    root.firstElementChild.style.boxSizing = 'content-box'; root.firstElementChild.style.padding = '4px';
+  });
+  await page.addScriptTag({type:'module', content: module + '\nwindow.paddedController = enhanceLanes(document.querySelector(".ehven-lanes"), {force:true});'});
+  await settleEnhancement(page);
+  const padded = await geometry(page);
+  near(padded.boxes[0].y, 20, 'Padding/border preserved at block start');
+  near(padded.boxes[rtl ? 2 : 0].x, 20, 'Padding/border preserved at inline edge');
+  const paddedHeight = await page.locator('.ehven-lanes').evaluate(node => node.getBoundingClientRect().height);
+  near(paddedHeight, Math.max(...padded.boxes.map(b=>b.y+b.height))+20, 'Container contains the tallest column and trailing padding');
+  await page.evaluate(() => window.paddedController.destroy());
+
+  await fixture(page, css, 'horizontal', rtl);
+  await page.addScriptTag({type:'module', content: module + `
+    const root=document.querySelector('.ehven-lanes');
+    for (const options of [null, {force:'yes'}, {unknown:true}]) {
+      let rejected=false; try { enhanceLanes(root,options); } catch(error) { rejected=error instanceof TypeError; }
+      if(!rejected)throw Error('Invalid enhancement options were accepted');
+    }
+    const pending=enhanceLanes(root,{force:true}); pending.destroy(); pending.destroy();
+  `});
+  await settleEnhancement(page);
+  assert.equal(await page.locator('.ehven-lanes').getAttribute('style'), null, 'Destroy before first frame cancels work and preserves absent inline style');
+  assert.equal(await page.locator('.ehven-lanes').getAttribute('data-ehven-lanes-enhanced'), null);
+
+  if (force && !rtl) {
+    await fixture(page, css, 'horizontal');
+    await page.addScriptTag({type:'module', content: module + '\nwindow.workloadController = enhanceLanes(document.querySelector(".ehven-lanes"), {force:true});'});
+    const samples = [];
+    for (let sample = 0; sample < 5; sample++) {
+      const start = await page.evaluate(() => {
+        const root = document.querySelector('.ehven-lanes'), start = performance.now();
+        root.replaceChildren(...Array.from({length:1000}, (_,i)=>{
+          const item=document.createElement('article'); item.style.height=`${50+i%7*15}px`; return item;
+        }));
+        return start;
+      });
+      await settleEnhancement(page);
+      const elapsed = await page.evaluate(start => performance.now() - start, start);
+      samples.push(elapsed);
+      checkOrdered(await geometry(page), 3, true);
+    }
+    assert.ok(Math.max(...samples)<=2000, 'Enhanced 1000-card workload remains within 2000ms');
+    observations.push({mode:'enhanced-horizontal',workload:1000,samplesMs:samples,maximumMs:Math.max(...samples)});
+    await page.evaluate(() => window.workloadController.destroy());
+  }
+}
+
 async function fixture(page, css, mode, rtl = false) {
   const attribute = mode ? ` data-ehven-lanes-order="${mode}"` : '';
   const cards = heights.map((height, i) => `<article id="card-${i + 1}" tabindex="0" aria-label="Card ${i + 1}" style="height:${height}px;background:${colors[i]}"></article>`).join('');
@@ -67,12 +178,13 @@ try {
   const entries = Array.isArray(response) ? response : Object.values(response);
   assert.equal(entries.length, 1);
   const packed = entries[0];
-  assert.ok(packed.size <= 8 * 1024, 'Packed budget: 8 KiB');
-  assert.ok(packed.unpackedSize <= 24 * 1024, 'Unpacked budget: 24 KiB');
+  assert.ok(packed.size <= 16 * 1024, 'Packed budget: 16 KiB including optional enhancement');
+  assert.ok(packed.unpackedSize <= 48 * 1024, 'Unpacked budget: 48 KiB including optional enhancement');
   await writeFile(join(work, 'package.json'), '{"private":true}');
   execFileSync('npm', ['install', '--ignore-scripts', '--offline', '--no-audit', '--no-fund', '--no-package-lock', join(work, packed.filename)], { cwd: work, timeout: 30000, stdio: 'pipe' });
   const require = createRequire(join(work, 'package.json'));
   const variants = await Promise.all(['lanes.css', 'lanes.min.css'].map(async name => ({ name, css: await readFile(require.resolve('@ehven/lanes/' + name), 'utf8') })));
+  const enhancement = await readFile(require.resolve('@ehven/lanes/enhance'), 'utf8');
   const legacy = await readFile(join(root, 'qa/fixtures/legacy.css'), 'utf8');
   for (const name of selected) {
     const browser = await engines[name].launch();
@@ -82,7 +194,11 @@ try {
       context.on('request', () => requests++);
       const page = await context.newPage();
       const observations = [];
+      const errors = []; page.on('pageerror', error => errors.push(error.message));
       for (const variant of variants) {
+        for (const force of [false, true]) for (const rtl of [false, true]) {
+          await checkEnhancement(page, variant.css, enhancement, force, rtl, observations);
+        }
         await fixture(page, variant.css, '');
         const defaults = await geometry(page);
         await page.locator('.ehven-lanes').evaluate(element => { element.classList.remove('ehven-lanes'); element.removeAttribute('style'); });
@@ -152,6 +268,7 @@ try {
         }
       }
       assert.equal(requests, 0, 'CSS/layout fixtures make no network requests');
+      assert.deepEqual(errors, [], 'No runtime errors or ResizeObserver feedback loops');
       results.push({ browser: name, version: browser.version(), requests, observations });
       await context.close();
     } finally { await browser.close(); }

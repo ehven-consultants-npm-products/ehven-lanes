@@ -9,14 +9,15 @@ import { fileURLToPath } from 'node:url';
 
 const script=fileURLToPath(new URL('../scripts/release.mjs',import.meta.url));
 const repository='ehven-consultants-npm-products/ehven-lanes';
-function fixture(t,repository='ehven-consultants-npm-products/ehven-lanes') {
+function fixture(t,repository='ehven-consultants-npm-products/ehven-lanes',enhancement=false) {
  const root=mkdtempSync(join(tmpdir(),'lanes-release-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
  for(const dir of ['bin','release','remote'])mkdirSync(join(root,dir));
  const bytes=Buffer.from('synthetic package'),head='a'.repeat(40),hash=(b,alg='sha256',encoding='hex')=>createHash(alg).update(b).digest(encoding);
  const candidate={schemaVersion:1,repository,name:'@ehven/lanes',version:'1.0.0',tag:'v1.0.0',tarball:'ehven-lanes-1.0.0.tgz',integrity:'sha512-'+hash(bytes,'sha512','base64')};
  const values={'ehven-lanes-1.0.0.tgz':bytes,'lanes.css':Buffer.from('a{}'),'lanes.min.css':Buffer.from('a{}'),'SHA256SUMS':Buffer.from('synthetic checksums')};
+ if(enhancement)values['enhance.mjs']=Buffer.from('export const enhanceLanes = () => {};');
  candidate.assets=Object.entries(values).map(([name,value])=>{writeFileSync(join(root,'release',name),value);return{name,sha256:hash(value)};});
- writeFileSync(join(root,'release/candidate.json'),JSON.stringify(candidate));writeFileSync(join(root,'package.json'),JSON.stringify({name:candidate.name,version:candidate.version,style:'./dist/lanes.css',unpkg:'./dist/lanes.min.css',repository:{url:'git+https://github.com/'+repository+'.git'}}));
+ writeFileSync(join(root,'release/candidate.json'),JSON.stringify(candidate));writeFileSync(join(root,'package.json'),JSON.stringify({name:candidate.name,version:candidate.version,style:'./dist/lanes.css',unpkg:'./dist/lanes.min.css',...(enhancement?{exports:{'./enhance':'./dist/enhance.mjs'}}:{}),repository:{url:'git+https://github.com/'+repository+'.git'}}));
  const state={head,ci:'success',tag:null,release:null,assets:[],calls:[]};
  const save=()=>writeFileSync(join(root,'state.json'),JSON.stringify(state));save();
  const executable=(name,code)=>writeFileSync(join(root,'bin',name),'#!'+process.execPath+'\n'+code,{mode:0o700});
@@ -40,6 +41,12 @@ function fixture(t,repository='ehven-consultants-npm-products/ehven-lanes') {
 
 test('draft preparation creates a source tag, reads back all assets and resumes without replacement',t=>{
  const f=fixture(t);let result=f.run('draft');assert.equal(result.status,0,result.stderr);assert.equal(f.remote().assets.length,4);assert.equal(f.remote().release.isDraft,true);result=f.run('draft');assert.equal(result.status,0,result.stderr);assert.equal(f.remote().calls.filter(x=>x[1]==='upload').length,4);
+});
+test('exported optional module joins the exact immutable-delivery inventory',t=>{
+ const f=fixture(t,repository,true);let result=f.run('draft');assert.equal(result.status,0,result.stderr);
+ assert.equal(f.remote().assets.length,5);assert.ok(f.remote().assets.includes('enhance.mjs'));
+ result=f.run('draft');assert.equal(result.status,0,result.stderr);assert.equal(f.remote().calls.filter(x=>x[1]==='upload').length,5);
+ writeFileSync(join(f.root,'remote/enhance.mjs'),'corrupt');result=f.run('draft');assert.notEqual(result.status,0);
 });
 test('failed CI and conflicting source tags prevent all draft creation',t=>{
  for(const change of [s=>s.ci='failure',s=>s.tag='b'.repeat(40)]){const f=fixture(t);change(f.state);f.save();assert.notEqual(f.run('draft').status,0);assert.equal(f.remote().release,null);}

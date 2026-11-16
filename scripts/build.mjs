@@ -1,4 +1,5 @@
 import {
+  copyFile,
   mkdir,
   readFile,
   rm,
@@ -50,6 +51,8 @@ await Promise.all([
     `${banner}${sourceCss}`,
     'utf8',
   ),
+  copyFile(new URL('src/enhance.mjs', projectRoot), new URL('dist/enhance.mjs', projectRoot)),
+  copyFile(new URL('src/enhance.d.mts', projectRoot), new URL('dist/enhance.d.mts', projectRoot)),
   writeFile(
     minifiedFile,
     `${banner}${minifiedCss}\n`,
@@ -59,5 +62,5 @@ await Promise.all([
 
 console.log(
   `Built ${packageMetadata.name} v${packageMetadata.version}: ` +
-  'dist/lanes.css and dist/lanes.min.css',
+  'dist/lanes.css, dist/lanes.min.css and dist/enhance.mjs',
 );

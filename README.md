@@ -1,13 +1,13 @@
 # `@ehven/lanes`
 
-Framework-independent CSS masonry for unequal-height peer items. No runtime JavaScript or dependencies. Existing markup uses CSS Columns, enhanced to native Grid Lanes where supported.
+CSS-first masonry for unequal-height peer items, with zero runtime dependencies. Use the stylesheet alone for progressive CSS layout, or add the optional horizontal enhancement for consecutive placement across columns with uneven card tops in supported browsers.
 
 ## Install and use
 
 Use the project's normal package manager, for example:
 
 ```sh
-npm install @ehven/lanes@1.0.0
+npm install @ehven/lanes@1.1.0
 ```
 
 Import one stylesheet once through the existing CSS pipeline:
@@ -37,7 +37,28 @@ Only direct children become lane items. Compatible bundlers also accept the root
 
 In native supporting browsers, successive cards cycle across columns and stack below their own column predecessor, retaining uneven tops. Direction follows LTR/RTL. This is cyclic placement, not shortest-column packing.
 
-Without native Grid Lanes plus infinite-tolerance support, horizontal mode falls back to aligned Grid rows, each below the preceding row's tallest card. No JavaScript polyfill ships.
+The stylesheet alone uses native cyclic Grid Lanes where supported. Otherwise it uses aligned Grid rows: each new row starts below the preceding row's tallest card. **To obtain uneven-top horizontal placement across the supported browsers, also load the optional enhancement:**
+
+```js
+import { enhanceLanes } from '@ehven/lanes/enhance';
+
+const container = document.querySelector('.ehven-lanes[data-ehven-lanes-order="horizontal"]');
+const layout = container instanceof HTMLElement ? enhanceLanes(container) : undefined;
+```
+
+Run this browser code after the container exists, for example in a module script. The stylesheet is still required. Native-capable browsers keep native placement; other supported browsers use the dependency-free JavaScript renderer. Importing CSS does not load JavaScript automatically.
+
+| Mode | Stylesheet alone | With the enhancement initialized |
+| --- | --- | --- |
+| Omitted or `vertical` | CSS Columns baseline, enhanced to automatic native Grid Lanes where supported | Unchanged |
+| `horizontal` | Cyclic, uneven-top placement (A) natively; aligned rows (B) otherwise | Cyclic, uneven-top placement (A) |
+| `rows` | Aligned rows (B) | Unchanged |
+
+The enhancement updates on container resizing, card growth, insertion/removal and text changes. It never rearranges the DOM or changes tabindex. Each card stacks below the preceding card in its own cyclic column; it does not choose the shortest column.
+
+The returned controller provides `refresh()` for a CSS-only setting change that does not otherwise trigger an observation, and `destroy()` before unmounting. Destroy disconnects observers, cancels queued work and restores only helper-owned styles. Use `enhanceLanes(container, { force: true })` to exercise the JavaScript path even in native-capable browsers; repeated calls return the same controller with its initial options.
+
+The optional renderer targets ordinary direct-child boxes in horizontal writing mode, including LTR/RTL. Use the package gap instead of item margins, and let it control card width and placement. Spanning, self-positioned cards and consumer transforms that determine layout size are outside this contract. It requires ResizeObserver, MutationObserver and requestAnimationFrame. If those browser capabilities are absent, initialization throws before changing layout; the CSS layout remains available.
 
 Set `data-ehven-lanes-order="rows"` for aligned rows everywhere. Omitted or unrecognized values preserve the original fallback/enhancement behavior. Ordered modes require single-lane children without explicit placement, spanning or CSS `order`. Consumer UI can change the attribute without measuring or reordering cards.
 
@@ -65,7 +86,7 @@ The existing tolerance hook maps to both native `flow-tolerance` and its newer `
 
 ## Manual use without Node
 
-1. Download [lanes.min.css](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.0.0/lanes.min.css) and [SHA256SUMS](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.0.0/SHA256SUMS) from the same release.
+1. Download [lanes.min.css](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.0/lanes.min.css) and [SHA256SUMS](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.0/SHA256SUMS) from the same release.
 2. In that directory, verify the selected file. Linux: `grep ' lanes.min.css$' SHA256SUMS | sha256sum --check`. macOS: `grep ' lanes.min.css$' SHA256SUMS | shasum -a 256 --check`. Expect `lanes.min.css: OK`.
 3. Store CSS locally, retain its license notice, and load it:
 
@@ -78,10 +99,20 @@ The existing tolerance hook maps to both native `flow-tolerance` and its newer `
 Readable CSS is also available. Corresponding npm/direct-download CSS bytes match. An optional CDN adds a third-party dependency:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.0.0/dist/lanes.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.0/dist/lanes.min.css">
 ```
 
 Never use moving `latest` URLs in production.
+
+For horizontal enhancement without a build tool, download [enhance.mjs](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.0/enhance.mjs) from the same versioned release and verify its entry in `SHA256SUMS`. Serve it with a JavaScript MIME type and initialize it after the container exists:
+
+```html
+<script type="module">
+  import { enhanceLanes } from '/assets/vendor/ehven-lanes/enhance.mjs';
+  const container = document.querySelector('.ehven-lanes[data-ehven-lanes-order="horizontal"]');
+  if (container instanceof HTMLElement) enhanceLanes(container);
+</script>
+```
 
 ## Compatibility and accessibility
 
@@ -107,9 +138,9 @@ For paid integration, support or sponsorship inquiries, [contact Ehven Consultan
 
 ## Documentation
 
-- [Installation workflows](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.0.0/docs/installation.md)
-- [Delivery and recovery](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.0.0/docs/delivery.md)
-- [Security policy](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.0.0/SECURITY.md)
-- [Changelog](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.0.0/CHANGELOG.md)
+- [Installation workflows](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.1.0/docs/installation.md)
+- [Delivery and recovery](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.1.0/docs/delivery.md)
+- [Security policy](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.1.0/SECURITY.md)
+- [Changelog](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.1.0/CHANGELOG.md)
 
 MIT © Gilad Ehven
