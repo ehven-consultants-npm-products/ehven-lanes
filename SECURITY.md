@@ -20,4 +20,4 @@ Include:
 - The practical impact.
 - Any suggested mitigation.
 
-This package contains CSS rather than executable browser JavaScript, but supply-chain, publication, integrity, and unexpectedly unsafe rendering issues are still treated as security concerns.
+The package includes CSS and an optional explicitly initialized browser module. The module measures and positions direct-child elements and observes layout/content changes; it does not make remote requests or use persistent storage. Supply-chain, publication, integrity, unexpected DOM effects and unsafe rendering issues are treated as security concerns.

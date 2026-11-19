@@ -1,6 +1,6 @@
 # Installation workflows
 
-`@ehven/lanes` is a CSS package. The HTML contract is the same on every platform:
+`@ehven/lanes` is a CSS-first package with an optional browser enhancement for cyclic, uneven-top horizontal placement. The HTML contract is the same on every platform:
 
 ```html
 <div class="ehven-lanes">
@@ -19,22 +19,22 @@ Install with the package manager already used by the project.
 ### pnpm
 
 ```sh
-pnpm add @ehven/lanes
+pnpm add @ehven/lanes@1.1.0 --save-exact
 ```
 
 ### npm
 
 ```sh
-npm install @ehven/lanes
+npm install @ehven/lanes@1.1.0 --save-exact
 ```
 
 ### Yarn
 
 ```sh
-yarn add @ehven/lanes
+yarn add @ehven/lanes@1.1.0 --exact
 ```
 
-Import the readable stylesheet:
+Import the readable stylesheet through a CSS pipeline that resolves npm packages:
 
 ```css
 @import '@ehven/lanes/lanes.css';
@@ -47,6 +47,15 @@ Importing the package root is also supported by compatible bundlers:
 ```
 
 The explicit `/lanes.css` subpath is recommended because it states the asset type clearly.
+
+A CSS-capable bundler can instead load the stylesheet from its JavaScript/TypeScript entry point:
+
+```js
+import '@ehven/lanes/lanes.css';
+```
+
+Choose one method and one CSS variant. Browsers do not resolve these bare npm specifiers in unprocessed CSS or scripts; use the static HTML recipe when there is no bundler.
+
 
 ## Cascade layers
 
@@ -65,7 +74,7 @@ This lets each project retain control of its cascade architecture.
 Install the package:
 
 ```sh
-pnpm add @ehven/lanes
+pnpm add @ehven/lanes@1.1.0 --save-exact
 ```
 
 Import it from a global project stylesheet:
@@ -89,7 +98,16 @@ Then use the class in any `.astro` component:
 </section>
 ```
 
-No Astro integration or hydrated client component is required.
+No Astro integration or hydrated client component is required for the stylesheet. An Astro layout can instead import CSS directly from frontmatter:
+
+```astro
+---
+import '@ehven/lanes/lanes.css';
+---
+<slot />
+```
+
+Reliable horizontal A additionally requires the browser initialization below. Put it in a processed Astro `<script>`, not frontmatter; frontmatter runs on the server.
 
 ## Starlight
 
@@ -126,7 +144,7 @@ The class can then be used in Astro components, MDX components, or supported HTM
 Install the package in the theme or plugin project:
 
 ```sh
-pnpm add @ehven/lanes
+pnpm add @ehven/lanes@1.1.0 --save-exact
 ```
 
 Import it through the project's primary CSS entry point:
@@ -142,7 +160,7 @@ Let the existing build system generate the public theme or plugin asset.
 Download `lanes.min.css` from a versioned GitHub Release and store it locally, for example:
 
 ```text
-assets/vendor/ehven-lanes/lanes.min.css
+assets/vendor/ehven-lanes/1.1.0/lanes.min.css
 ```
 
 Enqueue it from a theme:
@@ -156,7 +174,7 @@ add_action(
         wp_enqueue_style(
             'ehven-lanes',
             get_theme_file_uri(
-                '/assets/vendor/ehven-lanes/lanes.min.css'
+                '/assets/vendor/ehven-lanes/1.1.0/lanes.min.css'
             ),
             array(),
             '1.1.0'
@@ -167,6 +185,37 @@ add_action(
 
 Self-hosting the versioned file avoids making page rendering depend on a third-party CDN.
 
+Verify the downloaded files with the release's `SHA256SUMS` before deploying them. These examples target the frontend, not the block editor. Plugin projects can use `plugins_url()` relative to their plugin entry file instead of theme helpers. Keep the module and stylesheet at the same version.
+
+### Optional WordPress module (6.5+)
+
+For horizontal A, also save the verified `enhance.mjs` beside the CSS. Create `assets/js/lanes-init.mjs` in the theme:
+
+```js
+import { enhanceLanes } from '../vendor/ehven-lanes/1.1.0/enhance.mjs';
+
+document.querySelectorAll('.ehven-lanes[data-ehven-lanes-order="horizontal"]')
+  .forEach(container => enhanceLanes(container));
+```
+
+Enqueue that entry module in addition to the CSS:
+
+```php
+add_action('wp_enqueue_scripts', static function (): void {
+    wp_enqueue_script_module(
+        'ehven-lanes-init',
+        get_theme_file_uri('/assets/js/lanes-init.mjs'),
+        array(),
+        '1.1.0'
+    );
+});
+```
+
+The native module API is available from WordPress 6.5. The theme must call the standard `wp_head()`/`wp_footer()` hooks. Serve `.mjs` as JavaScript. Loading the entry also imports the helper; enqueuing the helper alone does not initialize containers. Use direct-child cards and the horizontal attribute from the recipe below. With a Node build, bundle the initializer through the existing pipeline instead. A host that replaces content dynamically must destroy old controllers and mount the new containers.
+
+API references: [WordPress styles](https://developer.wordpress.org/reference/functions/wp_enqueue_style/) and [WordPress script modules](https://developer.wordpress.org/reference/functions/wp_enqueue_script_module/).
+
+
 ## Static HTML
 
 Download and store the stylesheet with the site:
@@ -174,7 +223,7 @@ Download and store the stylesheet with the site:
 ```html
 <link
   rel="stylesheet"
-  href="/assets/vendor/ehven-lanes/lanes.min.css"
+  href="/assets/vendor/ehven-lanes/1.1.0/lanes.min.css"
 />
 ```
 
@@ -247,7 +296,7 @@ Treat each direct child as the layout item. If content needs independent outer m
 
 ## Ordering
 
-Add `data-ehven-lanes-order="horizontal"` to cycle consecutive single-lane items across columns in browsers supporting native Grid Lanes and infinite tolerance. Each subsequent item in a column starts below its own predecessor, preserving unequal heights. Unsupported browsers render aligned horizontal Grid rows, with each row below its tallest predecessor. Use `data-ehven-lanes-order="rows"` for aligned rows consistently. Omit the attribute to preserve the original fallback/enhancement behavior.
+Add `data-ehven-lanes-order="horizontal"` to cycle consecutive single-lane items across columns in browsers supporting native Grid Lanes and infinite tolerance. Each subsequent item in a column starts below its own predecessor, preserving unequal heights. Without enhancement initialization, browsers lacking these native features render aligned horizontal Grid rows, with each row below its tallest predecessor. Initialize the optional module below to obtain cyclic uneven-top placement across the supported browser matrix. Use `data-ehven-lanes-order="rows"` for aligned rows consistently. Omit the attribute to preserve the original fallback/enhancement behavior.
 
 Keep direct children in meaningful source order and avoid explicit column placement, spanning and `order` overrides in ordered modes. Resizing or hiding/appending items recalculates placement using visible items and the current column count. Reserve image dimensions or aspect ratios when possible to reduce shifting as media loads. Layout only controls card boxes; the consumer remains responsible for long-text wrapping and overflowing inner content.
 
