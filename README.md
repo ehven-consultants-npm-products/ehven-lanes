@@ -10,12 +10,53 @@ Use the project's normal package manager, for example:
 npm install @ehven/lanes@1.1.0
 ```
 
-Import one stylesheet once through the existing CSS pipeline:
+Load **one** stylesheet once, using the approach that fits the project. Stylesheet imports and JavaScript imports of CSS require a bundler that resolves npm packages. Plain HTML can use a self-hosted file.
+
+### Existing CSS pipeline
 
 ```css
 @import '@ehven/lanes/lanes.css';
 /* Or: @import '@ehven/lanes/lanes.css' layer(layout); */
 ```
+
+### Bundler or Astro layout
+
+In a JavaScript/TypeScript entry point processed by a CSS-capable bundler:
+
+```js
+import '@ehven/lanes/lanes.css';
+```
+
+In an Astro layout, put that import in frontmatter. No Astro integration is required. Choose this method or the CSS import above, with one central loading entry to avoid double loading.
+
+### WordPress enqueue
+
+Download and verify the versioned CSS as described under [Manual use without Node](#manual-use-without-node), then store it in the theme. In the theme's `functions.php`:
+
+```php
+add_action('wp_enqueue_scripts', static function (): void {
+    wp_enqueue_style(
+        'ehven-lanes',
+        get_theme_file_uri('/assets/vendor/ehven-lanes/1.1.0/lanes.min.css'),
+        array(),
+        '1.1.0'
+    );
+});
+```
+
+This loads frontend CSS. Horizontal A also needs the enhancement initialized. See the [WordPress recipes](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/main/docs/installation.md#wordpress-without-a-node-build) for the complete CSS/module setup, including WordPress 6.5+ module enqueueing.
+
+### Static HTML or another CMS
+
+Use a verified local file in the document's `<head>`:
+
+```html
+<link rel="stylesheet" href="/assets/vendor/ehven-lanes/1.1.0/lanes.min.css">
+```
+
+Use the host's asset-registration API when it provides one. A version-pinned CDN is an optional alternative below.
+
+### Markup
 
 ```html
 <div class="ehven-lanes">
@@ -91,7 +132,7 @@ The existing tolerance hook maps to both native `flow-tolerance` and its newer `
 3. Store CSS locally, retain its license notice, and load it:
 
 ```html
-<link rel="stylesheet" href="/assets/vendor/ehven-lanes/lanes.min.css">
+<link rel="stylesheet" href="/assets/vendor/ehven-lanes/1.1.0/lanes.min.css">
 ```
 
 4. Apply the markup/settings above. Verify narrow/wide layout and actual content order.
@@ -108,7 +149,7 @@ For horizontal enhancement without a build tool, download [enhance.mjs](https://
 
 ```html
 <script type="module">
-  import { enhanceLanes } from '/assets/vendor/ehven-lanes/enhance.mjs';
+  import { enhanceLanes } from '/assets/vendor/ehven-lanes/1.1.0/enhance.mjs';
   const container = document.querySelector('.ehven-lanes[data-ehven-lanes-order="horizontal"]');
   if (container instanceof HTMLElement) enhanceLanes(container);
 </script>
@@ -120,11 +161,11 @@ Fallbacks require CSS Columns (default) or modern Grid with `min()` (ordered mod
 
 DOM order is unchanged. Columns flow downward; original native mode favors shorter lanes. Horizontal masonry can place a later card higher than an earlier card in another column. Use independent peers; choose rows for strict visual row sequence. Preserve meaningful source order and verify keyboard traversal.
 
-Verified engines: WebKit 27.2 (native and fallback), Chromium 156 and Firefox 157 (fallback). These are test-engine results, not certification of every branded browser or host version.
+Verified engines: WebKit 27.2 (native cyclic placement and forced JavaScript fallback), Chromium 156 and Firefox 157 (CSS aligned rows and enhanced cyclic placement). These are test-engine results, not certification of every branded browser or host version.
 
 Recipes cover Astro, Starlight, WordPress, Webflow and static HTML; they do not certify every host version. Reserve media dimensions to reduce shifts and handle inner text overflow in consumer CSS.
 
-The stable 1.x contract covers the class, ordering attributes, three custom properties, stylesheet exports and documented defaults. Patches preserve behavior; compatible additions use a minor; incompatible contract changes require a major and migration notes. Native layout depends on browser support; aligned rows remain the horizontal fallback. Only the latest minor of the current major receives fixes; no response-time guarantee applies. Restore an exact verified version to roll back.
+The stable 1.x contract covers the class, ordering attributes, three custom properties, stylesheet exports and documented defaults. Since 1.1.0, it also covers the optional `enhanceLanes` export, boolean `force` option and returned `refresh()`/`destroy()` controller. Patches preserve behavior; compatible additions use a minor; incompatible contract changes require a major and migration notes. Native layout depends on browser support. Without enhancement initialization, aligned rows remain the horizontal fallback where native cyclic placement is unavailable. Only the latest minor of the current major receives fixes; no response-time guarantee applies. Restore an exact verified version to roll back.
 
 ## Agent-assisted integration
 
@@ -134,13 +175,15 @@ This is consumer guidance, not an installed assistant integration.
 
 ## Support and funding
 
-For paid integration, support or sponsorship inquiries, [contact Ehven Consultants](https://ehven.com/contact/). Sponsorship is not a support agreement. Use public issues for routine bugs and the security policy for vulnerabilities.
+For paid integration, support or sponsorship inquiries, <a href="https://ehven.com/contact/" target="_blank" rel="noopener noreferrer">contact Ehven Consultants</a>. Sponsorship is not a support agreement. Use public issues for routine bugs and the security policy for vulnerabilities.
 
 ## Documentation
 
-- [Installation workflows](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.1.0/docs/installation.md)
-- [Delivery and recovery](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.1.0/docs/delivery.md)
-- [Security policy](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.1.0/SECURITY.md)
-- [Changelog](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/v1.1.0/CHANGELOG.md)
+These links track current 1.x documentation. The [1.1.0 source tag](https://github.com/ehven-consultants-npm-products/ehven-lanes/tree/v1.1.0) preserves the documentation originally shipped with that release.
+
+- [Installation workflows](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/main/docs/installation.md)
+- [Delivery and recovery](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/main/docs/delivery.md)
+- [Security policy](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/main/SECURITY.md)
+- [Changelog](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/main/CHANGELOG.md)
 
 MIT © Gilad Ehven
