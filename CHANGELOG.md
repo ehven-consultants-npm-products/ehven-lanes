@@ -6,6 +6,8 @@ The project follows Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-20
+
 ### Documentation
 
 - Add CSS, bundler, Astro, WordPress enqueue and self-hosted HTML loading options.
@@ -57,7 +59,8 @@ The first stable release preserves existing markup and styling hooks. No markup 
 - npm and direct-stylesheet delivery workflows.
 - Automated tests, package inspection, checksums, and releases.
 
-[Unreleased]: https://github.com/ehven-consultants-npm-products/ehven-lanes/compare/v1.1.0...main
+[Unreleased]: https://github.com/ehven-consultants-npm-products/ehven-lanes/compare/v1.1.1...main
+[1.1.1]: https://www.npmjs.com/package/@ehven/lanes/v/1.1.1
 [1.1.0]: https://www.npmjs.com/package/@ehven/lanes/v/1.1.0
 [1.0.0]: https://www.npmjs.com/package/@ehven/lanes/v/1.0.0
 [0.1.0]: https://www.npmjs.com/package/@ehven/lanes/v/0.1.0

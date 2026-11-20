@@ -7,7 +7,7 @@ CSS-first masonry for unequal-height peer items, with zero runtime dependencies.
 Use the project's normal package manager, for example:
 
 ```sh
-npm install @ehven/lanes@1.1.0
+npm install @ehven/lanes@1.1.1
 ```
 
 Load **one** stylesheet once, using the approach that fits the project. Stylesheet imports and JavaScript imports of CSS require a bundler that resolves npm packages. Plain HTML can use a self-hosted file.
@@ -37,9 +37,9 @@ Download and verify the versioned CSS as described under [Manual use without Nod
 add_action('wp_enqueue_scripts', static function (): void {
     wp_enqueue_style(
         'ehven-lanes',
-        get_theme_file_uri('/assets/vendor/ehven-lanes/1.1.0/lanes.min.css'),
+        get_theme_file_uri('/assets/vendor/ehven-lanes/1.1.1/lanes.min.css'),
         array(),
-        '1.1.0'
+        '1.1.1'
     );
 });
 ```
@@ -51,7 +51,7 @@ This loads frontend CSS. Horizontal A also needs the enhancement initialized. Se
 Use a verified local file in the document's `<head>`:
 
 ```html
-<link rel="stylesheet" href="/assets/vendor/ehven-lanes/1.1.0/lanes.min.css">
+<link rel="stylesheet" href="/assets/vendor/ehven-lanes/1.1.1/lanes.min.css">
 ```
 
 Use the host's asset-registration API when it provides one. A version-pinned CDN is an optional alternative below.
@@ -127,12 +127,12 @@ The existing tolerance hook maps to both native `flow-tolerance` and its newer `
 
 ## Manual use without Node
 
-1. Download [lanes.min.css](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.0/lanes.min.css) and [SHA256SUMS](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.0/SHA256SUMS) from the same release.
+1. Download [lanes.min.css](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.1/lanes.min.css) and [SHA256SUMS](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.1/SHA256SUMS) from the same release.
 2. In that directory, verify the selected file. Linux: `grep ' lanes.min.css$' SHA256SUMS | sha256sum --check`. macOS: `grep ' lanes.min.css$' SHA256SUMS | shasum -a 256 --check`. Expect `lanes.min.css: OK`.
 3. Store CSS locally, retain its license notice, and load it:
 
 ```html
-<link rel="stylesheet" href="/assets/vendor/ehven-lanes/1.1.0/lanes.min.css">
+<link rel="stylesheet" href="/assets/vendor/ehven-lanes/1.1.1/lanes.min.css">
 ```
 
 4. Apply the markup/settings above. Verify narrow/wide layout and actual content order.
@@ -140,16 +140,16 @@ The existing tolerance hook maps to both native `flow-tolerance` and its newer `
 Readable CSS is also available. Corresponding npm/direct-download CSS bytes match. An optional CDN adds a third-party dependency:
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.0/dist/lanes.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.1/dist/lanes.min.css">
 ```
 
 Never use moving `latest` URLs in production.
 
-For horizontal enhancement without a build tool, download [enhance.mjs](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.0/enhance.mjs) from the same versioned release and verify its entry in `SHA256SUMS`. Serve it with a JavaScript MIME type and initialize it after the container exists:
+For horizontal enhancement without a build tool, download [enhance.mjs](https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/v1.1.1/enhance.mjs) from the same versioned release and verify its entry in `SHA256SUMS`. Serve it with a JavaScript MIME type and initialize it after the container exists:
 
 ```html
 <script type="module">
-  import { enhanceLanes } from '/assets/vendor/ehven-lanes/1.1.0/enhance.mjs';
+  import { enhanceLanes } from '/assets/vendor/ehven-lanes/1.1.1/enhance.mjs';
   const container = document.querySelector('.ehven-lanes[data-ehven-lanes-order="horizontal"]');
   if (container instanceof HTMLElement) enhanceLanes(container);
 </script>
@@ -179,7 +179,7 @@ For paid integration, support or sponsorship inquiries, <a href="https://ehven.c
 
 ## Documentation
 
-These links track current 1.x documentation. The [1.1.0 source tag](https://github.com/ehven-consultants-npm-products/ehven-lanes/tree/v1.1.0) preserves the documentation originally shipped with that release.
+These links track current 1.x documentation. The [1.1.1 source tag](https://github.com/ehven-consultants-npm-products/ehven-lanes/tree/v1.1.1) preserves the documentation originally shipped with that release.
 
 - [Installation workflows](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/main/docs/installation.md)
 - [Delivery and recovery](https://github.com/ehven-consultants-npm-products/ehven-lanes/blob/main/docs/delivery.md)
