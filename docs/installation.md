@@ -19,19 +19,19 @@ Install with the package manager already used by the project.
 ### pnpm
 
 ```sh
-pnpm add @ehven/lanes@1.1.0 --save-exact
+pnpm add @ehven/lanes@1.1.1 --save-exact
 ```
 
 ### npm
 
 ```sh
-npm install @ehven/lanes@1.1.0 --save-exact
+npm install @ehven/lanes@1.1.1 --save-exact
 ```
 
 ### Yarn
 
 ```sh
-yarn add @ehven/lanes@1.1.0 --exact
+yarn add @ehven/lanes@1.1.1 --exact
 ```
 
 Import the readable stylesheet through a CSS pipeline that resolves npm packages:
@@ -74,7 +74,7 @@ This lets each project retain control of its cascade architecture.
 Install the package:
 
 ```sh
-pnpm add @ehven/lanes@1.1.0 --save-exact
+pnpm add @ehven/lanes@1.1.1 --save-exact
 ```
 
 Import it from a global project stylesheet:
@@ -144,7 +144,7 @@ The class can then be used in Astro components, MDX components, or supported HTM
 Install the package in the theme or plugin project:
 
 ```sh
-pnpm add @ehven/lanes@1.1.0 --save-exact
+pnpm add @ehven/lanes@1.1.1 --save-exact
 ```
 
 Import it through the project's primary CSS entry point:
@@ -160,7 +160,7 @@ Let the existing build system generate the public theme or plugin asset.
 Download `lanes.min.css` from a versioned GitHub Release and store it locally, for example:
 
 ```text
-assets/vendor/ehven-lanes/1.1.0/lanes.min.css
+assets/vendor/ehven-lanes/1.1.1/lanes.min.css
 ```
 
 Enqueue it from a theme:
@@ -174,10 +174,10 @@ add_action(
         wp_enqueue_style(
             'ehven-lanes',
             get_theme_file_uri(
-                '/assets/vendor/ehven-lanes/1.1.0/lanes.min.css'
+                '/assets/vendor/ehven-lanes/1.1.1/lanes.min.css'
             ),
             array(),
-            '1.1.0'
+            '1.1.1'
         );
     }
 );
@@ -192,7 +192,7 @@ Verify the downloaded files with the release's `SHA256SUMS` before deploying the
 For horizontal A, also save the verified `enhance.mjs` beside the CSS. Create `assets/js/lanes-init.mjs` in the theme:
 
 ```js
-import { enhanceLanes } from '../vendor/ehven-lanes/1.1.0/enhance.mjs';
+import { enhanceLanes } from '../vendor/ehven-lanes/1.1.1/enhance.mjs';
 
 document.querySelectorAll('.ehven-lanes[data-ehven-lanes-order="horizontal"]')
   .forEach(container => enhanceLanes(container));
@@ -206,7 +206,7 @@ add_action('wp_enqueue_scripts', static function (): void {
         'ehven-lanes-init',
         get_theme_file_uri('/assets/js/lanes-init.mjs'),
         array(),
-        '1.1.0'
+        '1.1.1'
     );
 });
 ```
@@ -223,7 +223,7 @@ Download and store the stylesheet with the site:
 ```html
 <link
   rel="stylesheet"
-  href="/assets/vendor/ehven-lanes/1.1.0/lanes.min.css"
+  href="/assets/vendor/ehven-lanes/1.1.1/lanes.min.css"
 />
 ```
 
@@ -232,7 +232,7 @@ Alternatively, use the version-pinned npm CDN URL:
 ```html
 <link
   rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.0/dist/lanes.min.css"
+  href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.1/dist/lanes.min.css"
 />
 ```
 
@@ -243,7 +243,7 @@ Add the version-pinned stylesheet link to the project's site-wide `<head>` custo
 ```html
 <link
   rel="stylesheet"
-  href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.0/dist/lanes.min.css"
+  href="https://cdn.jsdelivr.net/npm/@ehven/lanes@1.1.1/dist/lanes.min.css"
 />
 ```
 

@@ -9,7 +9,7 @@ https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/
 https://github.com/ehven-consultants-npm-products/ehven-lanes/releases/download/vVERSION/SHA256SUMS
 ```
 
-Follow the README's Linux/macOS checksum commands, retain the license notice, and store/link the verified file locally, preferably in a versioned directory such as `/assets/vendor/ehven-lanes/1.1.0/`. Corresponding npm and direct-download CSS bytes are identical.
+Follow the README's Linux/macOS checksum commands, retain the license notice, and store/link the verified file locally, preferably in a versioned directory such as `/assets/vendor/ehven-lanes/1.1.1/`. Corresponding npm and direct-download CSS bytes are identical.
 
 An optional version-pinned CDN adds a third-party network dependency:
 
